@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hartă teren București — v5 · comune Ilfov + A0</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{--bg:#0f1419;--panel:#161c24;--panel2:#1d2530;--line:#2a3340;--txt:#e6edf3;--muted:#9aa7b4;--accent:#4da3ff;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  #app{display:flex;height:100vh;width:100vw;overflow:hidden}
+  #sidebar{width:380px;min-width:380px;height:100%;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:16px}
+  #map{flex:1;height:100%;background:#0b0f14}
+  h1{font-size:17px;margin:0 0 2px}
+  .pill{display:inline-block;font-size:10px;background:var(--accent);color:#06121f;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;margin-left:6px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+  .viewsel{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .viewsel button{flex:1 1 auto;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:11.5px;cursor:pointer;transition:.15s}
+  .viewsel button:hover{border-color:var(--accent)}
+  .viewsel button.active{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:600}
+  .catrow{display:grid;grid-template-columns:18px 1fr 42px;gap:8px;align-items:center;padding:8px;border-radius:8px;margin-bottom:5px;background:var(--panel2);border:1px solid transparent}
+  .catrow.viewing{border-color:var(--accent)}
+  .catrow .nm{font-size:12.5px;line-height:1.2;cursor:pointer}
+  .catrow .nm small{display:block;color:var(--muted);font-size:10.5px}
+  .catrow input[type=range]{grid-column:1 / -1;width:100%;margin:2px 0 0;accent-color:var(--accent)}
+  .catrow .wv{font-size:12px;text-align:right;color:var(--accent);font-variant-numeric:tabular-nums}
+  .catrow.off{opacity:.45}
+  .slider{margin:8px 0}
+  .slider label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .slider label b{color:var(--accent);font-variant-numeric:tabular-nums}
+  .slider input[type=range]{width:100%;accent-color:var(--accent)}
+  .toggles{display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+  .toggles label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+  .toggles input{margin-top:2px;accent-color:var(--accent)}
+  .toggles small{color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .geo{display:flex;gap:6px;margin:0 0 6px}
+  .geo input{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 9px;font-size:12px}
+  .geo button{background:var(--accent);color:#06121f;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  #geoMsg{font-size:11px;color:var(--muted);margin:0 0 8px;min-height:14px;line-height:1.4}
+  .chips label{display:flex;align-items:center;gap:5px;font-size:11.5px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:4px 9px;cursor:pointer}
+  .chips input{accent-color:var(--accent)}
+  .btns{display:flex;gap:8px;margin:10px 0 4px}
+  .btns button{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px;font-size:12px;cursor:pointer}
+  .btns button:hover{border-color:var(--accent)}
+  #toplist{list-style:none;padding:0;margin:0}
+  #toplist li{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:7px;font-size:12px;margin-bottom:4px;background:var(--panel2);cursor:pointer}
+  #toplist li:hover{outline:1px solid var(--accent)}
+  #toplist .rk{color:var(--muted);width:18px}
+  #toplist .nm{flex:1}
+  #toplist .sc{font-variant-numeric:tabular-nums;font-weight:600}
+  .legend{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin-top:8px}
+  .legbar{flex:1;height:10px;border-radius:5px;background:linear-gradient(90deg,hsl(0,70%,48%),hsl(60,70%,48%),hsl(120,65%,42%))}
+  .note{font-size:11px;color:var(--muted);line-height:1.5;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:10px}
+  .note b{color:var(--txt)}
+  details{margin-top:10px}
+  summary{cursor:pointer;font-size:12px;color:var(--accent)}
+  .pop h3{margin:0 0 2px;font-size:14px}
+  .pop .sect{color:#888;font-size:11px;margin-bottom:6px}
+  .pop table{border-collapse:collapse;width:100%}
+  .pop td{padding:1px 0;font-size:11.5px}
+  .pop td:last-child{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+  .pop .cmt{margin-top:6px;background:#11161d;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:11px;line-height:1.5}
+  .pop .verdict{margin-top:6px;padding:4px 6px;border-radius:6px;font-size:11.5px;font-weight:600;text-align:center}
+  .bar{display:inline-block;height:7px;border-radius:4px;vertical-align:middle}
+  .leaflet-heat-pane{filter:blur(16px);will-change:filter;}
+  #floatlegend{position:absolute;z-index:1000;bottom:16px;right:16px;background:rgba(22,28,36,.92);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--muted);max-width:250px}
+  #floatlegend b{color:var(--txt);font-size:12px}
+  @media (max-width:760px){#app{flex-direction:column}#sidebar{width:100%;min-width:0;height:auto;max-height:48vh}#map{height:52vh}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sidebar">
+    <h1>Hartă teren București <span class="pill">v4 · accent pe periferie</span></h1>
+    <p class="sub">~105 puncte concrete (bulevarde / străzi / locații) între inel și centură. Verde = mai bun, roșu = mai slab. Click pe orice punct pentru metrici + timp până în centru. Denumirile rămân deasupra heatmap-ului.</p>
+
+    <div class="geo">
+      <input id="geoInput" type="text" placeholder="Caută adresă/loc exact (ex: Str. Rezervelor 70)"/>
+      <button id="geoBtn">Caută</button>
+    </div>
+    <div id="geoMsg">Tastează o adresă reală: harta o localizează exact și îți arată punctul analizat cel mai apropiat + scorul.</div>
+
+    <h2>Strat afișat</h2>
+    <div class="viewsel" id="viewsel"></div>
+
+    <h2>Aspect heatmap</h2>
+    <div class="slider">
+      <label>Intensitate (opacitate) <b id="vOp">26 %</b></label>
+      <input type="range" id="sOp" min="0" max="85" step="1" value="26">
+      <div style="font-size:10.5px;color:var(--muted);margin-top:3px">Mai spre stânga = mai transparent, vezi mai bine harta.</div>
+    </div>
+    <div class="slider">
+      <label>Difuzie (blur) <b id="vBlur">16 px</b></label>
+      <input type="range" id="sBlur" min="0" max="45" step="1" value="16">
+    </div>
+    <div class="slider">
+      <label>Acoperire (rază) <b id="vRad">900 m</b></label>
+      <input type="range" id="sRad" min="300" max="2500" step="50" value="900">
+    </div>
+
+    <h2>Ponderi (pentru scorul combinat)</h2>
+    <div id="cats"></div>
+    <div class="btns">
+      <button id="presetSafe">Preset: Siguranță + miros</button>
+      <button id="presetReset">Reset ponderi</button>
+    </div>
+    <div class="legend"><span>slab</span><div class="legbar"></div><span>bun</span></div>
+
+    <h2>Tip locație</h2>
+    <div class="chips">
+      <label><input type="checkbox" id="tfBd" checked> Bulevard / arteră</label>
+      <label><input type="checkbox" id="tfSt" checked> Stradă rezidențială</label>
+      <label><input type="checkbox" id="tfPk" checked> Lângă parc / verde</label>
+      <label><input type="checkbox" id="tfIn" checked> Lângă industrial</label>
+    </div>
+
+    <h2>Poziție în oraș</h2>
+    <div class="chips">
+      <label><input type="checkbox" id="rfPeri" checked> Periferie (spre centură)</label>
+      <label><input type="checkbox" id="rfMid" checked> Intermediar</label>
+      <label><input type="checkbox" id="rfIn" checked> Interior (lângă inel)</label>
+      <label><input type="checkbox" id="rfExt" checked> Comune Ilfov (centură/A0)</label>
+    </div>
+
+    <h2>Hazarde &amp; filtre</h2>
+    <div class="toggles">
+      <label><input type="checkbox" id="hzLandfill" checked> <span>Gropi de gunoi / depozite <small>Chiajna-Rudeni (Iridex), Vidra</small></span></label>
+      <label><input type="checkbox" id="hzSewage" checked> <span>Stație de epurare <small>Glina (ape uzate)</small></span></label>
+      <label><input type="checkbox" id="hzBurn" checked> <span>Arderi ilegale deșeuri <small>Sintești</small></span></label>
+      <label><input type="checkbox" id="hzInd" checked> <span>Zone industriale grele <small>Pallady, IMGB, Pantelimon, Militari</small></span></label>
+      <label><input type="checkbox" id="hzRing"> <span>Inel rezultate (radius miros indicativ)</span></label>
+      <label><input type="checkbox" id="showCentura" checked> <span>Centura București (reper aproximativ)</span></label>
+      <label><input type="checkbox" id="showA0" checked> <span>Autostrada A0 — noduri + traseu (orientativ)</span></label>
+      <label><input type="checkbox" id="budget"> <span>Doar zone fezabile sub 100.000 € <small>estimativ</small></span></label>
+    </div>
+
+    <h2>Top puncte (după stratul curent)</h2>
+    <ul id="toplist"></ul>
+
+    <div class="note" id="ctxnote"></div>
+
+    <details>
+      <summary>Metodologie, surse și limitări (citește)</summary>
+      <div class="note" style="margin-top:8px">
+        <b>Cum se calculează la nivel de punct.</b> Fiecare stradă/bulevard pleacă de la scorurile cartierului și se ajustează: (1) <i>tipul locației</i> — bulevardele pierd la liniște/aer și câștigă la infrastructură, străzile rezidențiale și zonele de parc câștigă la liniște/aer; (2) <i>distanța reală până la hazarde</i> — mirosul și aerul scad cu cât punctul e mai aproape de Glina, Chiajna, Sintești sau platforme industriale.<br><br>
+        <b>Timp până în centru</b> = estimare față de Km 0 (Piața Unirii), pe baza distanței rutiere aproximate × viteză medie realistă (≈17 km/h la oră de vârf, ≈32 km/h în trafic liber). Reperul de metrou e cea mai apropiată stație/linie a cartierului. Sunt estimări, nu rutare live.<br><br>
+        <b>De ce nu există un strat „etnie".</b> Harta nu clasifică zonele după etnia locuitorilor — discriminare și indicator înșelător. Grija reală e acoperită de stratul <b>Siguranță &amp; socio-economic</b>.<br><br>
+        <b>Surse hazarde:</b> Garda Națională de Mediu și presă (Chiajna-Rudeni, Glina, Sintești). <b>Limitare:</b> scoruri aproximative la nivel de zonă, nu de parcelă. <b>Verifică înainte de cumpărare</b>: PUG/PUZ + certificat de urbanism, cadastru/ANCPI, stația ANPM, istoric inundații, vizită pe teren seara și pe vânt dinspre hazarde.
+      </div>
+    </details>
+  </div>
+  <div id="map"></div>
+  <div id="floatlegend">
+    <b>Detaliu pe străzi.</b> Câmp difuz transparent + puncte clickabile. Verde = bun, roșu = slab. Triunghi/pătrat/✶ = hazarde. Selectează „Timp până în centru" ca strat pentru naveta.
+  </div>
+</div>
+
+<script>
+// ---------- Categorii (8 scoruri + commute) ----------
+const CATS = [
+  {k:'safety', label:'Siguranță & socio-economic', desc:'criminalitate, degradare, reputație', w:10},
+  {k:'smell',  label:'Mediu / mirosuri',           desc:'gropi gunoi, epurare, industrie', w:9},
+  {k:'air',    label:'Calitate aer',               desc:'PM2.5/PM10, trafic, arderi',      w:7},
+  {k:'flood',  label:'Risc inundații (invers)',    desc:'mai mare = risc mai mic',         w:5},
+  {k:'quiet',  label:'Liniște / trafic redus',     desc:'zgomot, aglomerație',             w:6},
+  {k:'infra',  label:'Infrastructură',             desc:'metrou, utilități, drumuri, școli', w:6},
+  {k:'invest', label:'Potențial apreciere',        desc:'creștere valoare pe termen lung', w:5},
+  {k:'afford', label:'Fezabilitate buget <100k €', desc:'teren accesibil în zona',         w:6},
+  {k:'commute',label:'Timp până în centru',        desc:'auto la oră de vârf (Km 0)',      w:6}
+];
+const KMAP = {safety:'s', smell:'sm', air:'ai', flood:'fl', quiet:'qu', infra:'in', invest:'iv', afford:'af'};
+
+// ---------- Baze pe cartier ----------
+const NB = {
+  baneasa:{nm:'Băneasa',sec:'S1',s:85,sm:80,ai:78,fl:80,qu:68,in:80,iv:92,af:12,mtr:'fără metrou (tren/autobuz)'},
+  aviatiei:{nm:'Aviației',sec:'S1',s:88,sm:85,ai:75,fl:85,qu:70,in:92,iv:90,af:15,mtr:'M2 Aurel Vlaicu/Aviatorilor'},
+  herastrau:{nm:'Aviatorilor/Herăstrău',sec:'S1',s:90,sm:88,ai:80,fl:85,qu:78,in:90,iv:93,af:8,mtr:'M2 Aviatorilor'},
+  primaverii:{nm:'Primăverii',sec:'S1',s:92,sm:88,ai:80,fl:85,qu:82,in:88,iv:95,af:5,mtr:'M2 Aviatorilor (~10 min)'},
+  dorobanti:{nm:'Dorobanți',sec:'S1',s:88,sm:85,ai:72,fl:85,qu:62,in:90,iv:90,af:10,mtr:'fără metrou direct (autobuz)'},
+  domenii:{nm:'Domenii',sec:'S1',s:85,sm:82,ai:72,fl:82,qu:75,in:82,iv:85,af:25,mtr:'M4 1 Mai/Pajura'},
+  bucnoi:{nm:'Bucureștii Noi',sec:'S1',s:60,sm:38,ai:50,fl:70,qu:60,in:70,iv:65,af:55,mtr:'M4 Jiului/Parc Bazilescu'},
+  pajura:{nm:'Pajura',sec:'S1',s:52,sm:40,ai:50,fl:72,qu:58,in:68,iv:58,af:60,mtr:'M4 Pajura'},
+  garanord:{nm:'Gara de Nord',sec:'S1',s:50,sm:70,ai:55,fl:75,qu:40,in:88,iv:70,af:30,mtr:'M1 Gara de Nord'},
+  pipera:{nm:'Pipera',sec:'S2',s:78,sm:75,ai:68,fl:78,qu:50,in:72,iv:88,af:35,mtr:'M2 Pipera'},
+  floreasca:{nm:'Floreasca',sec:'S2',s:85,sm:82,ai:72,fl:75,qu:68,in:88,iv:90,af:18,mtr:'aproape M2 Ștefan cel Mare'},
+  tei:{nm:'Tei',sec:'S2',s:72,sm:78,ai:68,fl:70,qu:66,in:78,iv:75,af:40,mtr:'fără metrou (tramvai)'},
+  colentina:{nm:'Colentina',sec:'S2',s:50,sm:65,ai:60,fl:65,qu:56,in:70,iv:60,af:58,mtr:'fără metrou (tramvai 21)'},
+  fundeni:{nm:'Fundeni',sec:'S2',s:58,sm:62,ai:62,fl:60,qu:65,in:60,iv:62,af:62,mtr:'fără metrou'},
+  pantelimon:{nm:'Pantelimon',sec:'S2',s:40,sm:55,ai:55,fl:65,qu:50,in:68,iv:55,af:65,mtr:'M1 Republica/Costin Georgian'},
+  iancului:{nm:'Iancului',sec:'S2',s:68,sm:72,ai:60,fl:75,qu:58,in:85,iv:75,af:42,mtr:'M1 Iancului'},
+  obor:{nm:'Obor/Ștefan cel Mare',sec:'S2',s:65,sm:72,ai:58,fl:78,qu:48,in:88,iv:78,af:35,mtr:'M1 Obor / M2 Ștefan cel Mare'},
+  andronache:{nm:'Andronache/Plumbuita',sec:'S2',s:55,sm:65,ai:62,fl:62,qu:62,in:58,iv:60,af:62,mtr:'fără metrou'},
+  titan:{nm:'Titan',sec:'S3',s:72,sm:68,ai:62,fl:78,qu:64,in:88,iv:78,af:45,mtr:'M1/M3 Titan/N. Grigorescu'},
+  dristor:{nm:'Dristor',sec:'S3',s:70,sm:70,ai:58,fl:78,qu:52,in:90,iv:78,af:40,mtr:'M1/M3 Dristor (hub)'},
+  vitan:{nm:'Vitan',sec:'S3',s:70,sm:68,ai:60,fl:68,qu:56,in:80,iv:75,af:42,mtr:'M1 Mihai Bravu/Timpuri Noi'},
+  baltaalba:{nm:'Balta Albă',sec:'S3',s:65,sm:65,ai:60,fl:75,qu:62,in:80,iv:70,af:50,mtr:'M1 Titan / M3'},
+  pallady:{nm:'Th. Pallady/Faur',sec:'S3',s:55,sm:30,ai:38,fl:72,qu:46,in:75,iv:60,af:62,mtr:'M3 Anghel Saligny/N. Teclu'},
+  catelu:{nm:'Cățelu/Policolor',sec:'S3',s:50,sm:22,ai:35,fl:62,qu:48,in:55,iv:50,af:70,mtr:'M3 Nicolae Teclu (capăt)'},
+  dudesti:{nm:'Dudești',sec:'S3',s:62,sm:62,ai:55,fl:70,qu:52,in:78,iv:70,af:45,mtr:'M1 Mihai Bravu/Timpuri Noi'},
+  tineretului:{nm:'Tineretului',sec:'S4',s:80,sm:78,ai:65,fl:75,qu:70,in:88,iv:85,af:30,mtr:'M2 Tineretului'},
+  vacaresti:{nm:'Văcărești',sec:'S4',s:72,sm:74,ai:65,fl:66,qu:70,in:78,iv:80,af:42,mtr:'M2 Tineretului/Eroii Revoluției'},
+  berceni:{nm:'Berceni',sec:'S4',s:58,sm:45,ai:45,fl:70,qu:56,in:78,iv:65,af:70,mtr:'M2 D. Leonida/Berceni'},
+  imgb:{nm:'IMGB/Metalurgiei',sec:'S4',s:50,sm:35,ai:40,fl:68,qu:50,in:65,iv:55,af:78,mtr:'M2 Berceni (capăt)'},
+  oltenitei:{nm:'Olteniței',sec:'S4',s:55,sm:48,ai:48,fl:65,qu:55,in:60,iv:58,af:72,mtr:'fără metrou direct'},
+  progresul:{nm:'Progresul',sec:'S4',s:52,sm:45,ai:45,fl:62,qu:55,in:58,iv:55,af:75,mtr:'fără metrou'},
+  giurgiului:{nm:'Giurgiului',sec:'S4',s:45,sm:42,ai:45,fl:60,qu:50,in:60,iv:50,af:75,mtr:'fără metrou (tramvai)'},
+  ferentari:{nm:'Ferentari',sec:'S5',s:30,sm:48,ai:50,fl:65,qu:45,in:62,iv:45,af:80,mtr:'fără metrou (tramvai)'},
+  rahova:{nm:'Rahova',sec:'S5',s:42,sm:52,ai:52,fl:68,qu:50,in:65,iv:52,af:72,mtr:'fără metrou (tramvai)'},
+  s13:{nm:'13 Septembrie',sec:'S5',s:68,sm:65,ai:58,fl:72,qu:56,in:78,iv:75,af:40,mtr:'autobuz; aproape de centru'},
+  cotroceni:{nm:'Cotroceni',sec:'S5',s:85,sm:80,ai:65,fl:78,qu:72,in:85,iv:90,af:18,mtr:'M1/M3 Eroilor'},
+  ghencea:{nm:'Ghencea',sec:'S5',s:58,sm:60,ai:55,fl:70,qu:58,in:65,iv:62,af:60,mtr:'M5 (capăt Eroilor-Dr. Taberei)'},
+  drumtaberei:{nm:'Drumul Taberei',sec:'S6',s:70,sm:55,ai:58,fl:75,qu:64,in:85,iv:78,af:48,mtr:'M5 Drumul Taberei'},
+  militari:{nm:'Militari',sec:'S6',s:60,sm:45,ai:52,fl:72,qu:54,in:75,iv:68,af:58,mtr:'M3 Lujerului/Păcii/Preciziei'},
+  crangasi:{nm:'Crângași',sec:'S6',s:72,sm:55,ai:60,fl:65,qu:62,in:85,iv:78,af:45,mtr:'M1 Crângași'},
+  giulesti:{nm:'Giulești',sec:'S6',s:50,sm:42,ai:52,fl:62,qu:55,in:62,iv:55,af:65,mtr:'fără metrou (tramvai)'},
+  grozavesti:{nm:'Grozăvești',sec:'S6',s:68,sm:62,ai:55,fl:65,qu:50,in:85,iv:75,af:40,mtr:'M1 Grozăvești/P. Poenaru'},
+  lujerului:{nm:'Lujerului',sec:'S6',s:65,sm:50,ai:55,fl:72,qu:55,in:80,iv:70,af:52,mtr:'M3 Lujerului'},
+  rosu:{nm:'Roșu (Chiajna)',sec:'S6',s:58,sm:38,ai:50,fl:65,qu:62,in:55,iv:60,af:72,mtr:'fără metrou direct'},
+  prelghencea:{nm:'Prelungirea Ghencea',sec:'S6',s:55,sm:52,ai:55,fl:68,qu:60,in:55,iv:60,af:78,mtr:'fără metrou direct'}
+,
+  chitila:{nm:'Chitila (margine NV)',sec:'S1',s:55,sm:30,ai:45,fl:65,qu:58,in:55,iv:58,af:72,mtr:'tren/autobuz; M4 capăt la ~'},
+  baneasa_n:{nm:'Băneasa Nord/Sisești',sec:'S1',s:80,sm:70,ai:70,fl:78,qu:72,in:62,iv:85,af:30,mtr:'fără metrou (autobuz)'},
+  pipera_n:{nm:'Pipera-Tunari (nord)',sec:'S2',s:75,sm:72,ai:66,fl:76,qu:52,in:58,iv:85,af:40,mtr:'M2 Pipera la limită'},
+  fundeni_e:{nm:'Fundeni-Dobroești (est)',sec:'S2',s:55,sm:60,ai:58,fl:55,qu:62,in:52,iv:60,af:70,mtr:'fără metrou'},
+  pantelimon_e:{nm:'Pantelimon (margine est)',sec:'S2',s:42,sm:50,ai:52,fl:62,qu:52,in:58,iv:55,af:72,mtr:'M1 Republica la ~'},
+  catelu_glina:{nm:'Cățelu-Glina (SE)',sec:'S3',s:48,sm:15,ai:30,fl:60,qu:52,in:48,iv:48,af:78,mtr:'M3 Nicolae Teclu (capăt)'},
+  pallady_cent:{nm:'Pallady-Centură (est)',sec:'S3',s:52,sm:25,ai:32,fl:70,qu:48,in:62,iv:58,af:70,mtr:'M3 Anghel Saligny'},
+  berceni_s:{nm:'Berceni Sud (margine)',sec:'S4',s:55,sm:40,ai:40,fl:68,qu:58,in:62,iv:62,af:80,mtr:'M2 Berceni (capăt)'},
+  imgb_cent:{nm:'Metalurgiei-Centură (sud)',sec:'S4',s:48,sm:30,ai:35,fl:66,qu:50,in:58,iv:55,af:82,mtr:'M2 Berceni la ~'},
+  progresul_s:{nm:'Progresul Sud (margine)',sec:'S4',s:50,sm:40,ai:42,fl:60,qu:55,in:52,iv:55,af:80,mtr:'fără metrou'},
+  oltenitei_pop:{nm:'Olteniței-Popești (SE)',sec:'S4',s:52,sm:45,ai:45,fl:62,qu:55,in:55,iv:60,af:78,mtr:'fără metrou'},
+  prelghencea_s:{nm:'Prel. Ghencea-Centură (SV)',sec:'S6',s:55,sm:50,ai:52,fl:66,qu:60,in:52,iv:62,af:80,mtr:'M5 la limită / fără'},
+  militari_cent:{nm:'Militari-Centură (vest)',sec:'S6',s:58,sm:42,ai:50,fl:70,qu:56,in:68,iv:66,af:72,mtr:'M3 Preciziei (capăt)'},
+  giulesti_sarbi:{nm:'Giulești-Sârbi (NV)',sec:'S6',s:48,sm:35,ai:48,fl:60,qu:56,in:52,iv:52,af:72,mtr:'fără metrou'}
+,
+  otopeni:{nm:'Otopeni',sec:'Ilfov',s:78,sm:70,ai:66,fl:78,qu:46,in:72,iv:88,af:28,mtr:'fără metrou; Aeroport Otopeni/A3'},
+  tunari:{nm:'Tunari',sec:'Ilfov',s:75,sm:74,ai:68,fl:78,qu:62,in:60,iv:85,af:40,mtr:'fără metrou; DN1/A3'},
+  voluntari:{nm:'Voluntari',sec:'Ilfov',s:68,sm:68,ai:58,fl:72,qu:50,in:70,iv:82,af:30,mtr:'fără metrou (aproape M2 Pipera)'},
+  stefanesti:{nm:'Ștefăneștii de Jos',sec:'Ilfov',s:60,sm:66,ai:60,fl:70,qu:58,in:56,iv:70,af:55,mtr:'fără metrou; DN2'},
+  afumati:{nm:'Afumați',sec:'Ilfov',s:58,sm:62,ai:56,fl:70,qu:54,in:58,iv:68,af:58,mtr:'fără metrou; nod A0/DN2'},
+  mogosoaia:{nm:'Mogoșoaia',sec:'Ilfov',s:75,sm:76,ai:68,fl:74,qu:66,in:56,iv:82,af:35,mtr:'fără metrou; lac/pădure'},
+  chiajna_co:{nm:'Chiajna (comună)',sec:'Ilfov',s:58,sm:38,ai:50,fl:66,qu:56,in:60,iv:65,af:68,mtr:'M3 Preciziei la ~; A1/A0'},
+  dragomiresti:{nm:'Dragomirești-Vale',sec:'Ilfov',s:58,sm:55,ai:56,fl:66,qu:64,in:50,iv:62,af:78,mtr:'fără metrou; nod A0 (Lot 1)'},
+  ciorogarla:{nm:'Ciorogârla',sec:'Ilfov',s:58,sm:58,ai:58,fl:66,qu:66,in:44,iv:56,af:82,mtr:'fără metrou'},
+  domnesti:{nm:'Domnești',sec:'Ilfov',s:58,sm:56,ai:56,fl:66,qu:58,in:50,iv:65,af:80,mtr:'fără metrou; DJ602 aglomerat'},
+  clinceni:{nm:'Clinceni',sec:'Ilfov',s:58,sm:56,ai:56,fl:66,qu:64,in:46,iv:60,af:82,mtr:'fără metrou'},
+  bragadiru:{nm:'Bragadiru',sec:'Ilfov',s:56,sm:50,ai:54,fl:66,qu:50,in:58,iv:72,af:72,mtr:'aproape M3 capăt; nod A0/DN6'},
+  cornetu:{nm:'Cornetu',sec:'Ilfov',s:58,sm:56,ai:56,fl:60,qu:64,in:44,iv:58,af:82,mtr:'fără metrou'},
+  magurele:{nm:'Măgurele',sec:'Ilfov',s:65,sm:62,ai:58,fl:66,qu:62,in:56,iv:75,af:62,mtr:'fără metrou; tramvai 25; ELI-NP'},
+  jilava:{nm:'Jilava',sec:'Ilfov',s:48,sm:32,ai:38,fl:62,qu:52,in:52,iv:55,af:75,mtr:'fără metrou; nod A0/DN5'},
+  berceni_co:{nm:'Berceni (Ilfov)',sec:'Ilfov',s:55,sm:40,ai:44,fl:64,qu:60,in:46,iv:60,af:82,mtr:'fără metrou'},
+  vidra_co:{nm:'Vidra',sec:'Ilfov',s:52,sm:36,ai:44,fl:62,qu:62,in:40,iv:55,af:85,mtr:'fără metrou; aproape depozite deșeuri'},
+  undecembrie:{nm:'1 Decembrie',sec:'Ilfov',s:58,sm:54,ai:54,fl:66,qu:60,in:52,iv:68,af:75,mtr:'fără metrou; nod A0/DN4'},
+  popesti:{nm:'Popești-Leordeni',sec:'Ilfov',s:55,sm:50,ai:50,fl:66,qu:50,in:66,iv:68,af:68,mtr:'M2 Dimitrie Leonida la ~'},
+  glina_co:{nm:'Glina',sec:'Ilfov',s:48,sm:18,ai:34,fl:60,qu:52,in:48,iv:50,af:78,mtr:'fără metrou; lângă stația de epurare'},
+  cernica:{nm:'Cernica',sec:'Ilfov',s:62,sm:66,ai:62,fl:64,qu:66,in:54,iv:70,af:68,mtr:'fără metrou; nod A0/A2; lac/mănăstire'},
+  dobroesti:{nm:'Dobroești',sec:'Ilfov',s:52,sm:58,ai:55,fl:64,qu:55,in:58,iv:60,af:68,mtr:'aproape M1 Republica'},
+  pantelimon_co:{nm:'Pantelimon (oraș)',sec:'Ilfov',s:50,sm:54,ai:54,fl:64,qu:54,in:60,iv:60,af:68,mtr:'M1 Republica la ~'}
+};
+
+// ---------- Puncte stradale ----------
+const P = [
+  {n:'Șos. București-Ploiești',t:'bd',nb:'baneasa',lat:44.503,lng:26.082},
+  {n:'Str. Jandarmeriei',t:'st',nb:'baneasa',lat:44.500,lng:26.060},
+  {n:'Pădurea/Greenfield Băneasa',t:'pk',nb:'baneasa',lat:44.515,lng:26.075},
+  {n:'Bd. Aerogării',t:'bd',nb:'aviatiei',lat:44.478,lng:26.090},
+  {n:'Str. Av. Popișteanu',t:'st',nb:'aviatiei',lat:44.480,lng:26.082},
+  {n:'Bd. Pipera (Aviației)',t:'bd',nb:'aviatiei',lat:44.485,lng:26.100},
+  {n:'Bd. Aviatorilor',t:'bd',nb:'herastrau',lat:44.468,lng:26.087},
+  {n:'Parcul Herăstrău (mal)',t:'pk',nb:'herastrau',lat:44.475,lng:26.078},
+  {n:'Str. Av. Mircea Zorileanu',t:'st',nb:'herastrau',lat:44.470,lng:26.072},
+  {n:'Bd. Primăverii',t:'bd',nb:'primaverii',lat:44.463,lng:26.095},
+  {n:'Str. Paris',t:'st',nb:'primaverii',lat:44.460,lng:26.090},
+  {n:'Calea Dorobanți',t:'bd',nb:'dorobanti',lat:44.456,lng:26.094},
+  {n:'Piața Dorobanți',t:'bd',nb:'dorobanti',lat:44.453,lng:26.092},
+  {n:'Bd. Ion Mihalache',t:'bd',nb:'domenii',lat:44.460,lng:26.068},
+  {n:'Str. Clăbucet',t:'st',nb:'domenii',lat:44.462,lng:26.058},
+  {n:'Parcul Bazilescu',t:'pk',nb:'domenii',lat:44.470,lng:26.052},
+  {n:'Bd. Bucureștii Noi',t:'bd',nb:'bucnoi',lat:44.488,lng:26.043},
+  {n:'Str. Jiului (zonă mixtă)',t:'in',nb:'bucnoi',lat:44.485,lng:26.052},
+  {n:'Str. Pajurei',t:'st',nb:'pajura',lat:44.472,lng:26.053},
+  {n:'Calea Griviței',t:'bd',nb:'garanord',lat:44.450,lng:26.066},
+  {n:'Piața Gării de Nord',t:'bd',nb:'garanord',lat:44.446,lng:26.072},
+  {n:'Bd. Dimitrie Pompeiu',t:'bd',nb:'pipera',lat:44.485,lng:26.122},
+  {n:'Str. Barbu Văcărescu',t:'bd',nb:'pipera',lat:44.472,lng:26.103},
+  {n:'Calea Floreasca',t:'bd',nb:'floreasca',lat:44.463,lng:26.108},
+  {n:'Parcul/Lacul Floreasca',t:'pk',nb:'floreasca',lat:44.468,lng:26.112},
+  {n:'Str. Glinka',t:'st',nb:'floreasca',lat:44.460,lng:26.103},
+  {n:'Bd. Lacul Tei',t:'bd',nb:'tei',lat:44.456,lng:26.118},
+  {n:'Str. Doamna Ghica',t:'bd',nb:'tei',lat:44.460,lng:26.128},
+  {n:'Parcul Plumbuita',t:'pk',nb:'tei',lat:44.470,lng:26.130},
+  {n:'Șos. Colentina',t:'bd',nb:'colentina',lat:44.466,lng:26.135},
+  {n:'Str. Ziduri Moși',t:'st',nb:'colentina',lat:44.462,lng:26.126},
+  {n:'Șos. Fundeni',t:'bd',nb:'fundeni',lat:44.475,lng:26.158},
+  {n:'Șos. Pantelimon',t:'bd',nb:'pantelimon',lat:44.444,lng:26.150},
+  {n:'Str. Vergului (industrial)',t:'in',nb:'pantelimon',lat:44.442,lng:26.168},
+  {n:'Bd. Chișinău',t:'bd',nb:'pantelimon',lat:44.443,lng:26.140},
+  {n:'Bd. Pierre de Coubertin',t:'bd',nb:'iancului',lat:44.445,lng:26.135},
+  {n:'Șos. Iancului',t:'bd',nb:'iancului',lat:44.448,lng:26.127},
+  {n:'Șos. Ștefan cel Mare',t:'bd',nb:'obor',lat:44.452,lng:26.110},
+  {n:'Șos. Mihai Bravu',t:'bd',nb:'obor',lat:44.445,lng:26.124},
+  {n:'Piața Obor',t:'bd',nb:'obor',lat:44.452,lng:26.118},
+  {n:'Str. Heliade între Vii',t:'st',nb:'andronache',lat:44.484,lng:26.142},
+  {n:'Bd. Liviu Rebreanu',t:'bd',nb:'titan',lat:44.418,lng:26.150},
+  {n:'Bd. 1 Decembrie 1918',t:'bd',nb:'titan',lat:44.418,lng:26.166},
+  {n:'Bd. Nicolae Grigorescu',t:'bd',nb:'titan',lat:44.423,lng:26.150},
+  {n:'Parcul Titan / IOR',t:'pk',nb:'titan',lat:44.415,lng:26.158},
+  {n:'Bd. Camil Ressu',t:'bd',nb:'titan',lat:44.424,lng:26.140},
+  {n:'Str. interioare Titan (rezid.)',t:'st',nb:'titan',lat:44.414,lng:26.148},
+  {n:'Bd. Camil Ressu (Dristor)',t:'bd',nb:'dristor',lat:44.418,lng:26.135},
+  {n:'Str. Râmnicu Vâlcea',t:'st',nb:'dristor',lat:44.420,lng:26.128},
+  {n:'Calea Vitan',t:'bd',nb:'vitan',lat:44.412,lng:26.118},
+  {n:'Str. Foișorului',t:'st',nb:'vitan',lat:44.418,lng:26.114},
+  {n:'Bd. Basarabia',t:'bd',nb:'baltaalba',lat:44.430,lng:26.155},
+  {n:'Str. Baba Novac',t:'st',nb:'baltaalba',lat:44.425,lng:26.146},
+  {n:'Bd. Theodor Pallady',t:'in',nb:'pallady',lat:44.415,lng:26.182},
+  {n:'Str. Lucrețiu Pătrășcanu',t:'bd',nb:'pallady',lat:44.421,lng:26.170},
+  {n:'Cățelu / Policolor',t:'in',nb:'catelu',lat:44.405,lng:26.190},
+  {n:'Splaiul Unirii (est)',t:'bd',nb:'dudesti',lat:44.418,lng:26.106},
+  {n:'Calea Dudești',t:'bd',nb:'dudesti',lat:44.421,lng:26.114},
+  {n:'Parcul Tineretului',t:'pk',nb:'tineretului',lat:44.405,lng:26.108},
+  {n:'Bd. Tineretului',t:'bd',nb:'tineretului',lat:44.408,lng:26.103},
+  {n:'Str. Cuza Vodă',t:'st',nb:'tineretului',lat:44.415,lng:26.099},
+  {n:'Parcul Natural Văcărești',t:'pk',nb:'vacaresti',lat:44.398,lng:26.118},
+  {n:'Splaiul Unirii (Vitan-Bârzești)',t:'bd',nb:'vacaresti',lat:44.405,lng:26.120},
+  {n:'Bd. C-tin Brâncoveanu',t:'bd',nb:'berceni',lat:44.398,lng:26.105},
+  {n:'Șos. Olteniței (Berceni)',t:'bd',nb:'berceni',lat:44.389,lng:26.123},
+  {n:'Str. Nițu Vasile',t:'st',nb:'berceni',lat:44.388,lng:26.110},
+  {n:'Str. Turnu Măgurele',t:'st',nb:'berceni',lat:44.382,lng:26.107},
+  {n:'Bd. Metalurgiei (nord)',t:'in',nb:'berceni',lat:44.374,lng:26.116},
+  {n:'Bd. Metalurgiei (sud)',t:'in',nb:'imgb',lat:44.368,lng:26.123},
+  {n:'Drumul Dealul Bradului',t:'st',nb:'imgb',lat:44.364,lng:26.130},
+  {n:'Șos. Olteniței (sud)',t:'bd',nb:'oltenitei',lat:44.380,lng:26.133},
+  {n:'Șos. Giurgiului (mijloc)',t:'bd',nb:'progresul',lat:44.398,lng:26.088},
+  {n:'Str. Luica',t:'st',nb:'progresul',lat:44.392,lng:26.095},
+  {n:'Șos. Giurgiului (sud)',t:'bd',nb:'giurgiului',lat:44.385,lng:26.082},
+  {n:'Drumul Găzarului',t:'st',nb:'giurgiului',lat:44.391,lng:26.090},
+  {n:'Calea Ferentari',t:'in',nb:'ferentari',lat:44.408,lng:26.062},
+  {n:'Prelungirea Ferentari',t:'st',nb:'ferentari',lat:44.400,lng:26.058},
+  {n:'Str. Iacob Andrei',t:'st',nb:'ferentari',lat:44.412,lng:26.066},
+  {n:'Calea Rahovei',t:'bd',nb:'rahova',lat:44.412,lng:26.077},
+  {n:'Str. Sebastian',t:'st',nb:'rahova',lat:44.419,lng:26.078},
+  {n:'Str. 13 Septembrie',t:'bd',nb:'s13',lat:44.420,lng:26.078},
+  {n:'Bd. Tudor Vladimirescu',t:'bd',nb:'s13',lat:44.426,lng:26.082},
+  {n:'Bd. Eroii Sanitari',t:'bd',nb:'cotroceni',lat:44.435,lng:26.068},
+  {n:'Str. Dr. Lister',t:'st',nb:'cotroceni',lat:44.432,lng:26.062},
+  {n:'Grădina Botanică (Cotroceni)',t:'pk',nb:'cotroceni',lat:44.435,lng:26.064},
+  {n:'Bd. Ghencea',t:'bd',nb:'ghencea',lat:44.408,lng:26.043},
+  {n:'Str. Brașov (Ghencea)',t:'st',nb:'ghencea',lat:44.412,lng:26.039},
+  {n:'Bd. Drumul Taberei',t:'bd',nb:'drumtaberei',lat:44.420,lng:26.022},
+  {n:'Parcul Moghioroș (Dr. Taberei)',t:'pk',nb:'drumtaberei',lat:44.422,lng:26.028},
+  {n:'Bd. Timișoara',t:'bd',nb:'drumtaberei',lat:44.425,lng:26.035},
+  {n:'Str. Valea Ialomiței',t:'st',nb:'drumtaberei',lat:44.418,lng:26.016},
+  {n:'Str. Brașov (Dr. Taberei)',t:'st',nb:'drumtaberei',lat:44.416,lng:26.030},
+  {n:'Bd. Iuliu Maniu',t:'bd',nb:'militari',lat:44.435,lng:26.005},
+  {n:'Bd. Timișoara (vest)',t:'bd',nb:'militari',lat:44.428,lng:26.010},
+  {n:'Str. Apusului',t:'st',nb:'militari',lat:44.438,lng:25.995},
+  {n:'Militari Residence (Roșu, Str. Rezervelor)',t:'st',nb:'militari_cent',lat:44.4405,lng:25.9525},
+  {n:'Calea Crângași',t:'bd',nb:'crangasi',lat:44.450,lng:26.043},
+  {n:'Lacul Morii / Parc Crângași',t:'pk',nb:'crangasi',lat:44.448,lng:26.035},
+  {n:'Calea Giulești',t:'bd',nb:'giulesti',lat:44.460,lng:26.030},
+  {n:'Giulești-Sârbi',t:'in',nb:'giulesti',lat:44.470,lng:26.020},
+  {n:'Splaiul Independenței',t:'bd',nb:'grozavesti',lat:44.442,lng:26.060},
+  {n:'Str. Lujerului',t:'bd',nb:'lujerului',lat:44.430,lng:26.032},
+  {n:'Cartier Roșu (Chiajna)',t:'st',nb:'rosu',lat:44.452,lng:25.988},
+  {n:'Prelungirea Ghencea',t:'bd',nb:'prelghencea',lat:44.398,lng:26.018},
+  {n:'Cartier Brâncuși/Latin',t:'st',nb:'prelghencea',lat:44.392,lng:26.012}
+,
+  {n:'Chitila (margine)',t:'in',nb:'chitila',lat:44.508,lng:25.985},
+  {n:'Rudeni-Chitila (lângă groapă)',t:'in',nb:'chitila',lat:44.498,lng:25.972},
+  {n:'Giulești-Sârbi (centură)',t:'in',nb:'giulesti_sarbi',lat:44.478,lng:26.005},
+  {n:'Str. Sisești (Băneasa N)',t:'st',nb:'baneasa_n',lat:44.520,lng:26.075},
+  {n:'Băneasa-Centură (DN1)',t:'bd',nb:'baneasa_n',lat:44.528,lng:26.085},
+  {n:'Pipera-Tunari (nord)',t:'st',nb:'pipera_n',lat:44.508,lng:26.135},
+  {n:'Str. Erou Iancu Nicolae',t:'bd',nb:'pipera_n',lat:44.515,lng:26.122},
+  {n:'Fundeni-Dobroești (est)',t:'st',nb:'fundeni_e',lat:44.470,lng:26.180},
+  {n:'Pantelimon-Cozla (margine)',t:'st',nb:'pantelimon_e',lat:44.448,lng:26.180},
+  {n:'Pantelimon-Centură',t:'in',nb:'pantelimon_e',lat:44.445,lng:26.195},
+  {n:'Cățelu-Glina (margine)',t:'in',nb:'catelu_glina',lat:44.408,lng:26.205},
+  {n:'Glina (lângă epurare)',t:'in',nb:'catelu_glina',lat:44.402,lng:26.215},
+  {n:'Pallady-Centură (est)',t:'in',nb:'pallady_cent',lat:44.418,lng:26.205},
+  {n:'Berceni Sud (Drumul Jilava)',t:'st',nb:'berceni_s',lat:44.358,lng:26.110},
+  {n:'Berceni-Centură (Metalurgiei S)',t:'in',nb:'imgb_cent',lat:44.350,lng:26.120},
+  {n:'Olteniței-Popești (centură)',t:'in',nb:'oltenitei_pop',lat:44.368,lng:26.150},
+  {n:'Giurgiului-Centură (sud)',t:'bd',nb:'progresul_s',lat:44.368,lng:26.082},
+  {n:'Progresul-Bercenar (margine)',t:'st',nb:'progresul_s',lat:44.378,lng:26.095},
+  {n:'Prel. Ghencea-Centură',t:'bd',nb:'prelghencea_s',lat:44.382,lng:26.005},
+  {n:'Cartier Cetatea (SV)',t:'st',nb:'prelghencea_s',lat:44.388,lng:25.998},
+  {n:'Militari-Preciziei (centură)',t:'bd',nb:'militari_cent',lat:44.432,lng:25.962},
+  {n:'Militari Shopping / Auchan (Roșu)',t:'bd',nb:'militari_cent',lat:44.4365,lng:25.9605},
+  {n:'Roșu-Chiajna (centură)',t:'in',nb:'rosu',lat:44.455,lng:25.980},
+  {n:'1 Decembrie-Centură (est)',t:'st',nb:'titan',lat:44.418,lng:26.180},
+  {n:'Pallady-Policolor (est)',t:'in',nb:'pallady',lat:44.418,lng:26.196},
+  {n:'Drumul Taberei-Valea Oltului',t:'st',nb:'drumtaberei',lat:44.412,lng:26.010},
+  {n:'Ghencea-Centură (SV)',t:'st',nb:'ghencea',lat:44.402,lng:26.030},
+  {n:'Berceni-Turnu Măgurele S',t:'st',nb:'berceni',lat:44.372,lng:26.103}
+,
+  {n:'Otopeni (centru)',t:'st',co:1,nb:'otopeni',lat:44.547,lng:26.068},
+  {n:'Otopeni Sud',t:'st',co:1,nb:'otopeni',lat:44.535,lng:26.075},
+  {n:'Tunari',t:'st',co:1,nb:'tunari',lat:44.535,lng:26.115},
+  {n:'Mogoșoaia (lac/palat)',t:'pk',co:1,nb:'mogosoaia',lat:44.527,lng:25.967},
+  {n:'Voluntari (centru)',t:'st',co:1,nb:'voluntari',lat:44.492,lng:26.175},
+  {n:'Voluntari (Pipera-Voluntari)',t:'st',co:1,nb:'voluntari',lat:44.495,lng:26.150},
+  {n:'Ștefăneștii de Jos',t:'st',co:1,nb:'stefanesti',lat:44.535,lng:26.205},
+  {n:'Afumați',t:'st',co:1,nb:'afumati',lat:44.525,lng:26.225},
+  {n:'Dobroești',t:'st',co:1,nb:'dobroesti',lat:44.455,lng:26.198},
+  {n:'Pantelimon (oraș, Ilfov)',t:'st',co:1,nb:'pantelimon_co',lat:44.450,lng:26.218},
+  {n:'Cernica (mănăstire/lac)',t:'pk',co:1,nb:'cernica',lat:44.430,lng:26.288},
+  {n:'Glina (centru)',t:'st',co:1,nb:'glina_co',lat:44.395,lng:26.235},
+  {n:'Popești-Leordeni (centru)',t:'st',co:1,nb:'popesti',lat:44.378,lng:26.165},
+  {n:'Popești (spre Olteniței)',t:'st',co:1,nb:'popesti',lat:44.388,lng:26.158},
+  {n:'1 Decembrie',t:'st',co:1,nb:'undecembrie',lat:44.358,lng:26.158},
+  {n:'Berceni (Ilfov)',t:'st',co:1,nb:'berceni_co',lat:44.308,lng:26.115},
+  {n:'Jilava',t:'st',co:1,nb:'jilava',lat:44.335,lng:26.088},
+  {n:'Vidra',t:'st',co:1,nb:'vidra_co',lat:44.288,lng:26.130},
+  {n:'Măgurele (centru)',t:'st',co:1,nb:'magurele',lat:44.350,lng:26.030},
+  {n:'Cornetu',t:'st',co:1,nb:'cornetu',lat:44.355,lng:25.945},
+  {n:'Bragadiru (centru)',t:'st',co:1,nb:'bragadiru',lat:44.378,lng:25.965},
+  {n:'Bragadiru (Independenței)',t:'st',co:1,nb:'bragadiru',lat:44.386,lng:25.985},
+  {n:'Clinceni',t:'st',co:1,nb:'clinceni',lat:44.385,lng:25.910},
+  {n:'Domnești (centru)',t:'st',co:1,nb:'domnesti',lat:44.412,lng:25.945},
+  {n:'Domnești (spre Prel. Ghencea)',t:'st',co:1,nb:'domnesti',lat:44.402,lng:25.978},
+  {n:'Ciorogârla',t:'st',co:1,nb:'ciorogarla',lat:44.455,lng:25.835},
+  {n:'Dragomirești-Vale',t:'st',co:1,nb:'dragomiresti',lat:44.500,lng:25.880},
+  {n:'Chiajna (centru comună)',t:'st',co:1,nb:'chiajna_co',lat:44.470,lng:25.945}
+];
+
+// ---------- Hazarde ----------
+const HAZ = [
+  {grp:'landfill', n:'Depozit deșeuri Chiajna-Rudeni (Iridex)', lat:44.490, lng:25.965, r:3500,
+   info:'Cel mai reclamat focar de miros din NV. Peste 1.000 plângeri; autorizația anulată în instanță. Afectează Pajura, Bucureștii Noi, Crângași, Militari, Drumul Taberei, Giulești.'},
+  {grp:'landfill', n:'Zonă depozitare deșeuri Vidra (sud)', lat:44.305, lng:26.135, r:3000,
+   info:'Gestionare deșeuri în sudul Ilfovului; disconfort olfactiv în sudul orașului pe anumite vânturi.'},
+  {grp:'sewage', n:'Stația de epurare ape uzate Glina', lat:44.402, lng:26.225, r:3000,
+   info:'Stația de epurare a Bucureștiului. Miros recurent în SE (Cățelu, Glina, Theodor Pallady) pe vânt dinspre est.'},
+  {grp:'burn', n:'Arderi ilegale deșeuri — Sintești', lat:44.330, lng:26.000, r:5000,
+   info:'Arderi ilegale de cabluri/plastic. Fum și PM2.5 ajung frecvent în sudul Bucureștiului. Monitorizat cu drone de Garda de Mediu.'},
+  {grp:'ind', n:'Platforma industrială Theodor Pallady / Faur', lat:44.413, lng:26.190, r:2200,
+   info:'Industrie grea/logistică în estul S3. Trafic greu; depășiri PM pe Bd. Th. Pallady.'},
+  {grp:'ind', n:'Platforma IMGB / Metalurgiei (Berceni)', lat:44.366, lng:26.123, r:2200,
+   info:'Fostă platformă metalurgică grea în sudul S4. Trafic greu, aspect industrial.'},
+  {grp:'ind', n:'Zonă industrială Pantelimon / Republica', lat:44.440, lng:26.175, r:1800,
+   info:'Industrie și logistică în est; trafic greu pe Șos. Pantelimon.'},
+  {grp:'ind', n:'Zonă industrială Militari (vest)', lat:44.430, lng:25.975, r:1800,
+   info:'Hale și logistică în vest; combinat cu mirosul de la Chiajna pe vânt dinspre NV.'}
+];
+const HGRP = {landfill:{c:'#d98b3a',sym:'▲',el:'hzLandfill'}, sewage:{c:'#9d86ff',sym:'■',el:'hzSewage'},
+              burn:{c:'#ff5b5b',sym:'✶',el:'hzBurn'}, ind:{c:'#aeb4bd',sym:'⬢',el:'hzInd'}};
+const A0NODES=[
+ {n:'A1 Vest (Joița)',lat:44.490,lng:25.830},
+ {n:'DJ601 Dragomirești',lat:44.505,lng:25.870},
+ {n:'A3 Nord (Mogoșoaia)',lat:44.585,lng:25.945},
+ {n:'DN1 Corbeanca-Otopeni',lat:44.595,lng:26.055},
+ {n:'DN2 Afumați',lat:44.548,lng:26.255},
+ {n:'DN3 Cernica',lat:44.455,lng:26.315},
+ {n:'A2 Est (Cernica)',lat:44.420,lng:26.345},
+ {n:'DN4 Olteniței',lat:44.335,lng:26.205},
+ {n:'DN5 Adunații-Copăceni',lat:44.295,lng:26.045},
+ {n:'DN6 Bragadiru',lat:44.355,lng:25.895}
+];
+const SMELLPEN = {landfill:38, sewage:32, burn:25, ind:18};
+const AIRPEN   = {burn:35, ind:20, landfill:10, sewage:8};
+
+// type modifiers
+const TMOD = {
+  bd:{qu:-12,ai:-6,in:6,_l:'bulevard / arteră'},
+  st:{qu:7,ai:2,_l:'stradă rezidențială'},
+  pk:{qu:9,ai:7,iv:4,_l:'lângă parc / spațiu verde'},
+  in:{sm:-12,ai:-10,qu:-8,iv:-6,_l:'lângă zonă industrială'}
+};
+const TFILT = {bd:'tfBd', st:'tfSt', pk:'tfPk', in:'tfIn'};
+const RFILT = {in:'rfIn', mid:'rfMid', peri:'rfPeri', ext:'rfExt'};
+
+// ---------- Stare ----------
+let viewMode='combined';
+let RAD=900, OP=0.26;
+const weights={}; CATS.forEach(c=>weights[c.k]=c.w);
+const enabled={}; CATS.forEach(c=>enabled[c.k]=true);
+const CC=[44.4334,26.1037]; // Km 0 / Piața Unirii
+
+const clamp=v=>Math.max(0,Math.min(100,Math.round(v)));
+function hav(la1,lo1,la2,lo2){
+  const R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// ---------- Precalcul per punct ----------
+function buildPoints(){
+  P.forEach(p=>{
+    const b=NB[p.nb];
+    const sc={s:b.s,sm:b.sm,ai:b.ai,fl:b.fl,qu:b.qu,in:b.in,iv:b.iv,af:b.af};
+    const tm=TMOD[p.t]||{};
+    for(const k in tm){ if(k!=='_l' && sc[k]!==undefined) sc[k]+=tm[k]; }
+    let penS=0,penA=0;
+    HAZ.forEach(h=>{ const d=hav(p.lat,p.lng,h.lat,h.lng)*1000;
+      if(d<h.r){ const f=1-d/h.r;
+        penS=Math.max(penS,(SMELLPEN[h.grp]||0)*f);
+        penA=Math.max(penA,(AIRPEN[h.grp]||0)*f); } });
+    sc.sm-=penS; sc.ai-=penA;
+    let a0=1e9; A0NODES.forEach(nd=>{const d=hav(p.lat,p.lng,nd.lat,nd.lng); if(d<a0)a0=d;});
+    if(a0<4){const f=1-a0/4; sc.in+=8*f; sc.iv+=6*f;}
+    for(const k in sc) sc[k]=clamp(sc[k]);
+    p._sc=sc;
+    const dk=hav(p.lat,p.lng,CC[0],CC[1]);
+    const rd=dk*1.3;
+    p._dk=dk;
+    p._peak=Math.round(4+rd/17*60);
+    p._free=Math.round(3+rd/32*60);
+    p._cs=clamp(108-p._peak*2.0);
+    p._mtr=b.mtr; p._nbnm=b.nm; p._sec=b.sec; p._tl=(TMOD[p.t]||{})._l||''; p._a0km=a0;
+    p._ring=p.co?'ext':(p._dk<4.5?'in':(p._dk<8.0?'mid':'peri'));
+  });
+}
+
+// ---------- Hartă ----------
+const map=L.map('map',{zoomControl:true}).setView([44.435,26.090],12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+map.createPane('heat'); const heatPane=map.getPane('heat');
+heatPane.classList.add('leaflet-heat-pane'); heatPane.style.zIndex=350;
+const heatRenderer=L.svg({pane:'heat',padding:1.0});
+map.createPane('labels'); map.getPane('labels').style.zIndex=450; map.getPane('labels').style.pointerEvents='none';
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{pane:'labels',subdomains:'abcd',maxZoom:19}).addTo(map);
+
+const heatLayer=L.layerGroup().addTo(map);
+const dotLayer=L.layerGroup().addTo(map);
+const hazLayer=L.layerGroup().addTo(map);
+const centuraLayer=L.layerGroup().addTo(map);
+const a0Layer=L.layerGroup().addTo(map);
+
+function color(v){const h=Math.max(0,Math.min(120,v*1.2));return `hsl(${h},70%,47%)`;}
+function scoreForCat(p,key){ return key==='commute'? p._cs : p._sc[KMAP[key]]; }
+function scoreOf(p){
+  if(viewMode!=='combined') return scoreForCat(p,viewMode);
+  let sw=0,sv=0;
+  CATS.forEach(c=>{ if(enabled[c.k] && weights[c.k]>0){ sw+=weights[c.k]; sv+=weights[c.k]*scoreForCat(p,c.k); }});
+  return sw? Math.round(sv/sw):0;
+}
+function budgetOK(p){ return p._sc.af>=45; }
+
+function popupHtml(p){
+  const sc=scoreOf(p);
+  let verdict,vc;
+  if(sc>=78){verdict='STRONG BUY';vc='#1f7a44'}
+  else if(sc>=66){verdict='OPȚIUNE BUNĂ';vc='#3ddc84;color:#06121f'}
+  else if(sc>=52){verdict='ATENȚIE / VERIFICĂ';vc='#d39a00;color:#06121f'}
+  else {verdict='DE EVITAT';vc='#b22'}
+  let rows='';
+  CATS.forEach(c=>{const v=scoreForCat(p,c.k);
+    rows+=`<tr><td>${c.label}</td><td><span class="bar" style="width:${v*0.5}px;background:${color(v)}"></span> ${v}</td></tr>`;});
+  const cmt=`<div class="cmt"><b>Timp până în centru (Km 0):</b><br>
+    auto vârf ≈ <b>${p._peak} min</b> · auto liber ≈ ${p._free} min · ${p._dk.toFixed(1)} km<br>
+    metrou: ${p._mtr}<br>acces nod A0 (orientativ): ~${p._a0km.toFixed(1)} km</div>`;
+  return `<div class="pop"><h3>${p.n}</h3><div class="sect">${p._nbnm} · Sector ${p._sec.replace('S','')} · ${p._tl} · scor: <b>${sc}</b>/100</div>
+    <table>${rows}</table>${cmt}<div class="verdict" style="background:${vc}">${verdict}</div></div>`;
+}
+
+function typeOn(t){ return document.getElementById(TFILT[t]).checked; }
+function ringOn(r){ return document.getElementById(RFILT[r]).checked; }
+
+function drawZones(){
+  heatLayer.clearLayers(); dotLayer.clearLayers();
+  const budget=document.getElementById('budget').checked;
+  P.forEach(p=>{
+    if(!typeOn(p.t)||!ringOn(p._ring)) return;
+    const sc=scoreOf(p);
+    const dim=budget && !budgetOK(p);
+    const col=color(sc);
+    L.circle([p.lat,p.lng],{renderer:heatRenderer,pane:'heat',radius:RAD,stroke:false,fillColor:col,fillOpacity:dim?0.04:OP,interactive:false}).addTo(heatLayer);
+    const dot=L.circleMarker([p.lat,p.lng],{radius:5,fillColor:col,color:'#fff',weight:1,fillOpacity:dim?0.22:0.95,opacity:dim?0.3:0.9});
+    dot.bindPopup(popupHtml(p),{maxWidth:290});
+    dot.bindTooltip(`${p.n} — ${sc}`,{direction:'top',opacity:0.9});
+    dot._p=p; dot.addTo(dotLayer);
+  });
+  drawTop();
+}
+
+function drawHaz(){
+  hazLayer.clearLayers();
+  HAZ.forEach(h=>{
+    const g=HGRP[h.grp];
+    if(!document.getElementById(g.el).checked) return;
+    if(document.getElementById('hzRing').checked){
+      L.circle([h.lat,h.lng],{radius:h.r,color:g.c,weight:1,fillColor:g.c,fillOpacity:0.05,dashArray:'4 4'}).addTo(hazLayer);
+    }
+    const icon=L.divIcon({className:'',html:`<div style="font-size:22px;line-height:22px;color:${g.c};text-shadow:0 0 4px #000,0 0 4px #000">${g.sym}</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+    L.marker([h.lat,h.lng],{icon}).bindPopup(`<div class="pop"><h3>${h.n}</h3><div style="font-size:12px">${h.info}</div></div>`,{maxWidth:290}).addTo(hazLayer);
+  });
+}
+
+function drawA0(){
+  a0Layer.clearLayers();
+  if(!document.getElementById('showA0').checked) return;
+  const pts=A0NODES.map(n=>[n.lat,n.lng]); pts.push(pts[0]);
+  L.polyline(pts,{color:'#ffb24d',weight:2,opacity:0.7,dashArray:'2 7',interactive:false}).addTo(a0Layer);
+  A0NODES.forEach(n=>L.circleMarker([n.lat,n.lng],{radius:5,color:'#1a1f27',weight:1,fillColor:'#ffb24d',fillOpacity:0.95}).addTo(a0Layer).bindTooltip('Nod A0: '+n.n+' (orientativ)',{direction:'top'}));
+}
+function drawCentura(){
+  centuraLayer.clearLayers();
+  if(!document.getElementById('showCentura').checked) return;
+  L.circle(CC,{radius:11500,color:'#4da3ff',weight:1.5,fill:false,dashArray:'6 8',interactive:false}).addTo(centuraLayer);
+}
+function drawTop(){
+  const budget=document.getElementById('budget').checked;
+  const list=P.filter(p=>typeOn(p.t) && ringOn(p._ring) && !(budget && !budgetOK(p))).map(p=>({p,sc:scoreOf(p)})).sort((a,b)=>b.sc-a.sc).slice(0,12);
+  const ul=document.getElementById('toplist'); ul.innerHTML='';
+  list.forEach((it,i)=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<span class="rk">${i+1}</span><span class="nm">${it.p.n} <small style="color:var(--muted)">${it.p._sec}</small></span><span class="sc" style="color:${color(it.sc)}">${it.sc}</span>`;
+    li.onclick=()=>{ map.setView([it.p.lat,it.p.lng],14); dotLayer.eachLayer(l=>{if(l._p===it.p)l.openPopup();}); };
+    ul.appendChild(li);
+  });
+}
+
+// ---------- Strat afișat ----------
+const vs=document.getElementById('viewsel');
+function buildViewSel(){
+  vs.innerHTML='';
+  const opts=[{k:'combined',l:'★ Scor combinat'}].concat(CATS.map(c=>({k:c.k,l:c.label})));
+  opts.forEach(o=>{
+    const b=document.createElement('button');
+    b.textContent=o.l; b.dataset.k=o.k;
+    if(o.k===viewMode)b.classList.add('active');
+    b.onclick=()=>{viewMode=o.k; buildViewSel(); buildCats(); drawZones(); updateCtx();};
+    vs.appendChild(b);
+  });
+}
+
+// ---------- Ponderi ----------
+const catsBox=document.getElementById('cats');
+function buildCats(){
+  catsBox.innerHTML='';
+  CATS.forEach(c=>{
+    const row=document.createElement('div');
+    row.className='catrow'+(!enabled[c.k]?' off':'')+(viewMode===c.k?' viewing':'');
+    row.innerHTML=`
+      <input type="checkbox" ${enabled[c.k]?'checked':''} title="Include în scorul combinat">
+      <div class="nm">${c.label}<small>${c.desc}</small></div>
+      <div class="wv">${weights[c.k]}</div>
+      <input type="range" min="0" max="10" step="1" value="${weights[c.k]}">`;
+    const chk=row.querySelector('input[type=checkbox]');
+    const rng=row.querySelector('input[type=range]');
+    const wv=row.querySelector('.wv');
+    chk.onchange=()=>{enabled[c.k]=chk.checked; buildCats(); if(viewMode==='combined')drawZones();};
+    rng.oninput=()=>{weights[c.k]=+rng.value; wv.textContent=rng.value; if(viewMode==='combined')drawZones();};
+    catsBox.appendChild(row);
+  });
+}
+
+// ---------- Context ----------
+function updateCtx(){
+  const m={
+    combined:'Afișezi <b>scorul combinat</b>: media ponderată a categoriilor bifate (inclusiv timpul până în centru). Crește ponderile la ce contează; debifează o categorie ca să o scoți din calcul.',
+    safety:'<b>Siguranță & socio-economic.</b> Cele mai slabe: Ferentari, Pantelimon, Rahova, Giurgiului. Reputația ≠ infracțiuni raportate.',
+    smell:'<b>Mediu / mirosuri.</b> Calculat și din distanța la hazarde: Cățelu/Pallady (Glina+industrie), Bd. Metalurgiei (IMGB), Giulești-Sârbi/Roșu/Militari (Chiajna), sudul (Sintești).',
+    air:'<b>Calitate aer.</b> Mai slab pe arterele mari și lângă industrie/arderi; bulevardele pierd puncte față de străzile interioare.',
+    flood:'<b>Risc inundații.</b> Mai sensibile punctele joase lângă Dâmbovița, lacurile Colentina și Văcărești. Scor mare = risc mic.',
+    quiet:'<b>Liniște.</b> Bulevardele și piețele pierd puncte; străzile rezidențiale și zonele de parc câștigă. Cele mai liniștite: Primăverii, Herăstrău, Cotroceni, interior Drumul Taberei.',
+    infra:'<b>Infrastructură.</b> Punctaje mari pe coridoarele de metrou (Dristor, Titan, Crângași, Drumul Taberei-M5, Grozăvești).',
+    invest:'<b>Apreciere.</b> Nordul premium conduce; coridoarele de metrou nou și zonele de parc au potențial bun.',
+    afford:'<b>Fezabilitate sub 100.000 €.</b> Scor mare = teren realist accesibil (periferie spre centură). Nordul premium e practic peste buget.',
+    commute:'<b>Timp până în centru (Km 0).</b> Scor mare = ajungi repede în centru la oră de vârf. Punctele din S4/S6 dinspre centură pierd cel mai mult; Tineretului, Cotroceni, Vitan/Dudești, Obor sunt aproape.'
+  };
+  document.getElementById('ctxnote').innerHTML=m[viewMode]||'';
+}
+
+// ---------- Aspect heatmap ----------
+const sBlur=document.getElementById('sBlur'),sRad=document.getElementById('sRad'),sOp=document.getElementById('sOp');
+sOp.oninput=()=>{OP=+sOp.value/100; document.getElementById('vOp').textContent=sOp.value+' %'; drawZones();};
+sBlur.oninput=()=>{document.getElementById('vBlur').textContent=sBlur.value+' px'; heatPane.style.filter='blur('+sBlur.value+'px)';};
+sRad.oninput=()=>{RAD=+sRad.value; document.getElementById('vRad').textContent=RAD+' m'; drawZones();};
+
+// ---------- Presets & toggles ----------
+document.getElementById('presetSafe').onclick=()=>{
+  const pr={safety:10,smell:10,air:7,flood:4,quiet:6,infra:4,invest:3,afford:6,commute:5};
+  CATS.forEach(c=>{weights[c.k]=pr[c.k]; enabled[c.k]=true;});
+  viewMode='combined'; buildViewSel(); buildCats(); drawZones(); updateCtx();
+};
+document.getElementById('presetReset').onclick=()=>{
+  CATS.forEach(c=>{weights[c.k]=c.w; enabled[c.k]=true;});
+  buildCats(); if(viewMode==='combined')drawZones();
+};
+['hzLandfill','hzSewage','hzBurn','hzInd','hzRing'].forEach(id=>document.getElementById(id).onchange=drawHaz);
+['tfBd','tfSt','tfPk','tfIn'].forEach(id=>document.getElementById(id).onchange=drawZones);
+['rfPeri','rfMid','rfIn'].forEach(id=>document.getElementById(id).onchange=drawZones);
+document.getElementById('showCentura').onchange=drawCentura;
+document.getElementById('showA0').onchange=drawA0;
+document.getElementById('budget').onchange=drawZones;
+
+// ---------- Geocodare adresă (Nominatim / OpenStreetMap) ----------
+const searchLayer=L.layerGroup().addTo(map);
+async function geoSearch(){
+  const q=document.getElementById('geoInput').value.trim(); if(!q) return;
+  const msg=document.getElementById('geoMsg'); msg.textContent='Caut...';
+  try{
+    const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q+', București, România');
+    const r=await fetch(url,{headers:{'Accept':'application/json'}});
+    const j=await r.json();
+    if(!j||!j.length){ msg.textContent='Adresa nu a fost găsită. Încearcă o formulare mai exactă.'; return; }
+    const la=+j[0].lat, lo=+j[0].lon;
+    searchLayer.clearLayers();
+    L.circleMarker([la,lo],{radius:9,color:'#fff',weight:3,fillColor:'#4da3ff',fillOpacity:1}).addTo(searchLayer).bindPopup('<b>'+q+'</b><br>'+(j[0].display_name||'')).openPopup();
+    map.setView([la,lo],15);
+    let best=null,bd=1e9; P.forEach(p=>{const d=hav(la,lo,p.lat,p.lng); if(d<bd){bd=d;best=p;}});
+    if(best) msg.innerHTML='Cel mai apropiat punct analizat: <b>'+best.n+'</b> (~'+(bd*1000).toFixed(0)+' m) · scor combinat <b>'+scoreOf(best)+'</b>/100.';
+  }catch(e){ msg.textContent='Geocodarea nu e disponibilă acum (necesită internet).'; }
+}
+document.getElementById('geoBtn').onclick=geoSearch;
+document.getElementById('geoInput').addEventListener('keydown',e=>{ if(e.key==='Enter') geoSearch(); });
+
+// ---------- Init ----------
+heatPane.style.filter='blur(16px)';
+buildPoints(); buildViewSel(); buildCats(); drawZones(); drawHaz(); drawCentura(); drawA0(); updateCtx();
+</script>
+</body>
+</html>
